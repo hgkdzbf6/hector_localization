@@ -68,6 +68,9 @@ bool EKF::Corrector_<ConcreteModel, Enabled>::correct(const typename ConcreteMod
   ROS_DEBUG_STREAM_NAMED("ekf.correction", "h(x)     = [" << y_pred.transpose() << "]");
   ROS_DEBUG_STREAM_NAMED("ekf.correction", "C        = [" << std::endl << C << "]");
 
+  if(R(0,0)==16.81){
+ 	ROS_INFO_STREAM("C        = ["  << C << "]");
+  }
   CP.noalias() = C * state().P();
   S.noalias()  = CP * C.transpose() + R;
   K.noalias() = CP.transpose() * S.inverse();

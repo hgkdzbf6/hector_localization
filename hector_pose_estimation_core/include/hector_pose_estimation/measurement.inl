@@ -42,9 +42,14 @@ bool Measurement_<ConcreteModel>::updateImpl(const MeasurementUpdate &update_)
   if (!prepareUpdate(filter()->state(), update)) return false;
 
   ROS_DEBUG("Updating with measurement %s", getName().c_str());
+
   const MeasurementVector &y = getVector(update, filter()->state());
   const NoiseVariance &R = getVariance(update, filter()->state());
-
+  // if(getName().compare(std::string("image"))==0){
+  // 	ROS_INFO("Updating with measurement %s", getName().c_str());
+  // 	ROS_INFO_STREAM("y=["<<y<<"]");
+  // 	ROS_INFO_STREAM("R=["<<R<<"]");
+  // }
   this->corrector()->correct(y, R);
 
   afterUpdate(filter()->state());

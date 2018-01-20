@@ -43,7 +43,6 @@ GlobalReference::GlobalReference()
   parameters().add("reference_altitude",  reference_altitude_  = std::numeric_limits<double>::quiet_NaN());
   parameters().add("reference_heading",   heading_.value       = std::numeric_limits<double>::quiet_NaN());
 
-  reset();
 }
 
 const GlobalReferencePtr &GlobalReference::Instance()

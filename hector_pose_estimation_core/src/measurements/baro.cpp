@@ -37,7 +37,7 @@ template class Measurement_<BaroModel>;
 
 BaroModel::BaroModel()
 {
-  stddev_ = 1.0;
+  stddev_ = 0.01;
   qnh_ = 1013.25;
   parameters().add("qnh", qnh_);
 }

@@ -231,6 +231,7 @@ void PoseEstimation::update(double dt)
   SystemStatus measurement_status = 0;
   for(Measurements::iterator it = measurements_.begin(); it != measurements_.end(); it++) {
     const MeasurementPtr& measurement = *it;
+    // ROS_INFO("measurement : %s, %d", measurement->getName().c_str(), measurement->getStatusFlags());
     measurement_status |= measurement->getStatusFlags();
     measurement->increase_timer(dt);
   }
@@ -240,6 +241,7 @@ void PoseEstimation::update(double dt)
   SystemStatus system_status = 0;
   for(Systems::iterator it = systems_.begin(); it != systems_.end(); it++) {
     const SystemPtr& system = *it;
+    // ROS_INFO("system :%s, %d", system->getName().c_str(), system->getStatusFlags());
     system_status |= system->getStatusFlags();
   }
   updateSystemStatus(system_status, STATE_MASK | STATE_PSEUDO_MASK);
@@ -296,8 +298,11 @@ InputPtr PoseEstimation::setInput(const Input& value, std::string name)
     ROS_WARN("Set input \"%s\", but this input is not registered by any system model.", name.c_str());
     return InputPtr();
   }
-
   *input = value;
+  
+  // if(name=="imu"){
+  //   ROS_INFO_STREAM(static_cast<ImuInput>(value));
+  // }
   return input;
 }
 

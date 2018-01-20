@@ -117,6 +117,8 @@ add_library(hector_pose_estimation
   src/measurements/heading.cpp
   src/measurements/magnetic.cpp
   src/measurements/height.cpp
+  src/measurements/image.cpp
+  src/measurements/svo_image.cpp
   src/measurements/baro.cpp
   src/measurements/gps.cpp
   src/measurements/poseupdate.cpp

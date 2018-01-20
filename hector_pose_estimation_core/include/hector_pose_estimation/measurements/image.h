@@ -26,65 +26,69 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
-#include <hector_pose_estimation/system.h>
-#include <hector_pose_estimation/filter/ekf.h>
+#ifndef HECTOR_POSE_ESTIMATION_IMAGE_H
+#define HECTOR_POSE_ESTIMATION_IMAGE_H
+
+#include <hector_pose_estimation/measurement.h>
+#include <hector_pose_estimation/global_reference.h>
 
 namespace hector_pose_estimation {
 
-System::System(const std::string &name)
-  : name_(name)
-  , status_flags_(0)
+class ImageModel : public MeasurementModel_<ImageModel,4> {
+public:
+	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+	ImageModel();
+  virtual ~ImageModel();
+
+  virtual SystemStatus getStatusFlags() { return STATE_VELOCITY_XY | STATE_POSITION_XY ; }
+
+  virtual void getMeasurementNoise(NoiseVariance& R, const State&, bool init);
+  virtual void getExpectedValue(MeasurementVector& y_pred, const State& state);
+  virtual void getStateJacobian(MeasurementMatrix& C, const State& state, bool init);
+
+protected:
+  double position_stddev_;
+  double velocity_stddev_;
+  State::RotationMatrix R;
+};
+
+struct ImageUpdate : public MeasurementUpdate {
+  double x;
+  double y;
+  double vx;
+  double vy;
+};
+
+//namespace traits {
+//  template <> struct Update<ImageModel> { typedef ImageUpdate type; };
+//}
+
+extern template class Measurement_<ImageModel>;
+
+class Image : public Measurement_<ImageModel>
 {
-}
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-System::~System() {
-}
+  using Measurement_<ImageModel>::Model;
+  using Measurement_<ImageModel>::Update;
+  enum {MeasurementDimension=Measurement_<ImageModel>::MeasurementDimension};
+  using Measurement_<ImageModel>::MeasurementVector;
+  using Measurement_<ImageModel>::NoiseVariance;
 
-void System::getPrior(State &state) const
-{
-  getModel()->getPrior(state);
-}
+  Image(const std::string& name = "image");
+  virtual ~Image();
 
-bool System::init(PoseEstimation& estimator, State& state)
-{
-  if (!getModel() || !getModel()->init(estimator, *this, state)) return false;
-  return true;
-}
+  virtual void onReset();
 
-void System::cleanup()
-{
-  if (getModel()) getModel()->cleanup();
-}
+  virtual MeasurementVector const& getVector(const Update &update, const State&);
+  virtual bool prepareUpdate(State &state,const Update &update);
 
-void System::reset(State& state)
-{
-  if (getModel()) getModel()->reset(state);
-  status_flags_ = 0;
-}
-
-bool System::active(const State& state) {
-  bool active = (!getModel() || getModel()->active(state));
-  if (!active) status_flags_ = 0;
-  return active;
-}
-
-bool System::update(double dt) {
-  if (!filter() || !active(filter()->state())) return false;
-
-  if (getModel()) status_flags_ = getModel()->getStatusFlags(filter()->state());
-  // ROS_INFO("system name: %s . status_flag: %d",getName().c_str(),status_flags_);
-  if (!this->updateImpl(dt)) return false;
-  filter()->state().updated();
-
-  updated();
-  return true;
-}
-
-void System::updated() {
-}
-
-bool System::limitState(State &state) {
-  return getModel()->limitState(state);
-}
+private:
+  MeasurementVector y_;
+  NoiseVariance R_;
+};
 
 } // namespace hector_pose_estimation
+
+#endif // HECTOR_POSE_ESTIMATION_IMAGE_H

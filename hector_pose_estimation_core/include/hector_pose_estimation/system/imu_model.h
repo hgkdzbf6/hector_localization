@@ -56,6 +56,10 @@ public:
   using TimeContinuousSystemModel_<GyroModel,3>::getSystemNoise;
   void getSystemNoise(NoiseVariance& Q, const State& state, bool init = true);
 
+//  void getDerivative(StateVector &x_dot, const State &state);
+
+//  void getStateJacobian(SystemMatrix& A, const State& state);
+
 private:
   typename SubState::Ptr bias_;
   double rate_stddev_;
@@ -78,9 +82,11 @@ public:
   ColumnVector3 getAcceleration(const ImuInput::AccelerationType& imu_acceleration, const State& state) const;
   void getAccelerationJacobian(SystemMatrixBlock& C, const State& state, bool init = true);
   void getAccelerationNoise(CovarianceBlock Q, const State& state, bool init = true);
-
+//  void getStateJacobian(SystemMatrixBlock& A, const State& state);
+//  void getDerivative(StateVector &x_dot, const State &state);
   using TimeContinuousSystemModel_<AccelerometerModel,3>::getSystemNoise;
   void getSystemNoise(NoiseVariance& Q, const State& state, bool init = true);
+
 
 private:
   typename SubState::Ptr bias_;

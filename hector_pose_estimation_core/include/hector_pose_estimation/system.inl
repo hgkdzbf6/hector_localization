@@ -39,6 +39,7 @@ bool System_<ConcreteModel>::updateImpl(double dt)
   if (!prepareUpdate(filter()->state(), dt)) return false;
 
   ROS_DEBUG("Updating with system model %s (dt = %f)", getName().c_str(), dt);
+
   if (!predictor()->predict(dt)) return false;
 
   afterUpdate(filter()->state());

@@ -40,7 +40,7 @@ PoseUpdate::PoseUpdate(const std::string& name)
 {
   fixed_alpha_ = 0.0;
   fixed_beta_  = 0.0;
-  interpret_covariance_as_information_matrix_ = true;
+  interpret_covariance_as_information_matrix_ = false;
 
   max_time_difference_ = 1.0;
   predict_pose_ = true;
@@ -56,7 +56,7 @@ PoseUpdate::PoseUpdate(const std::string& name)
   fixed_angular_rate_xy_stddev_ = 0.0;
   fixed_angular_rate_z_stddev_ = 0.0;
 
-  max_position_xy_error_ = 3.0; // 3 sigma
+  max_position_xy_error_ = 300.0; // 3 sigma
   max_position_z_error_ = 3.0; // 3 sigma
   max_yaw_error_ = 3.0; // 3 sigma
 
@@ -291,7 +291,7 @@ bool PoseUpdate::updateImpl(const MeasurementUpdate &update_)
     }
 
     // update VelocityXY
-    if (information(0,0) > 0.0 || information(0,0) > 0.0) {
+    if (information(0,0) > 0.0 || information(1,1) > 0.0) {
       status_flags_ |= STATE_VELOCITY_XY;
 
       // fixed_velocity_xy_stddev_ = 1.0;

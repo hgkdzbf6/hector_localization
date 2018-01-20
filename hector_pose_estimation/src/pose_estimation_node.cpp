@@ -34,10 +34,13 @@
 #include <hector_pose_estimation/system/imu_model.h>
 #include <hector_pose_estimation/measurements/poseupdate.h>
 #include <hector_pose_estimation/measurements/baro.h>
+#include <hector_pose_estimation/measurements/image.h>
+#include <hector_pose_estimation/measurements/svo_image.h>
 #include <hector_pose_estimation/measurements/height.h>
 #include <hector_pose_estimation/measurements/magnetic.h>
 #include <hector_pose_estimation/measurements/gps.h>
 
+#include <geometry_msgs/TwistStamped.h>
 #ifdef USE_HECTOR_TIMING
   #include <hector_diagnostics/timing.h>
 #endif
@@ -52,6 +55,8 @@ PoseEstimationNode::PoseEstimationNode(const SystemPtr& system, const StatePtr& 
   , world_nav_transform_valid_(false)
   , sensor_pose_roll_(0), sensor_pose_pitch_(0), sensor_pose_yaw_(0)
 {
+  //传感器的位置,roll,pitch和yaw
+  //{PoseEstimationNode管信息的交互,PoseEstimation管计算
   if (!system) pose_estimation_->addSystem(new GenericQuaternionSystemModel);
 
   pose_estimation_->addInput(new ImuInput, "imu");
@@ -62,6 +67,8 @@ PoseEstimationNode::PoseEstimationNode(const SystemPtr& system, const StatePtr& 
   pose_estimation_->addMeasurement(new Height("height"));
   pose_estimation_->addMeasurement(new Magnetic("magnetic"));
   pose_estimation_->addMeasurement(new GPS("gps"));
+//  pose_estimation_->addMeasurement(new Image("image"));
+  pose_estimation_->addMeasurement(new SvoImage("svo_image"));
 }
 
 PoseEstimationNode::~PoseEstimationNode()
@@ -73,6 +80,7 @@ PoseEstimationNode::~PoseEstimationNode()
 
 bool PoseEstimationNode::init() {
   // get parameters
+  // 初始化
   pose_estimation_->parameters().initialize(ParameterRegistryROS(getPrivateNodeHandle()));
   getPrivateNodeHandle().getParam("publish_covariances", publish_covariances_ = false);
   if (getPrivateNodeHandle().getParam("publish_world_map_transform", publish_world_other_transform_ = false)) {
@@ -104,24 +112,29 @@ bool PoseEstimationNode::init() {
   height_subscriber_     = getNodeHandle().subscribe("pressure_height", 10, &PoseEstimationNode::heightCallback, this);
 #endif
   magnetic_subscriber_   = getNodeHandle().subscribe("magnetic", 10, &PoseEstimationNode::magneticCallback, this);
+//  image_subscriber_      = getNodeHandle().subscribe("image_pos_vel", 10, &PoseEstimationNode::imageCallback,this);
+  svo_subscriber_      = getNodeHandle().subscribe("svo_image", 10, &PoseEstimationNode::SvoImageCallback,this);
 
   gps_subscriber_.subscribe(getNodeHandle(), "fix", 10);
   gps_velocity_subscriber_.subscribe(getNodeHandle(), "fix_velocity", 10);
   gps_synchronizer_ = new message_filters::TimeSynchronizer<sensor_msgs::NavSatFix,geometry_msgs::Vector3Stamped>(gps_subscriber_, gps_velocity_subscriber_, 10);
   gps_synchronizer_->registerCallback(&PoseEstimationNode::gpsCallback, this);
+// 
+  state_publisher_       = getNodeHandle().advertise<nav_msgs::Odometry>("estimate_state", 10, false);
+  pose_publisher_        = getNodeHandle().advertise<geometry_msgs::PoseStamped>("estimate_pose", 10, false);
+  velocity_publisher_    = getNodeHandle().advertise<geometry_msgs::Vector3Stamped>("estimate_velocity", 10, false);
+  rate_publisher_        = getNodeHandle().advertise<geometry_msgs::Vector3Stamped>("estimate_rate",10,false);
+  imu_publisher_         = getNodeHandle().advertise<sensor_msgs::Imu>("filtered_imu", 10, false);
+  geopose_publisher_     = getNodeHandle().advertise<geographic_msgs::GeoPose>("estimate_geopose", 10, false);
+  global_fix_publisher_  = getNodeHandle().advertise<sensor_msgs::NavSatFix>("estimate_global", 10, false);
+  euler_publisher_       = getNodeHandle().advertise<geometry_msgs::Vector3Stamped>("estimate_euler", 10, false);
 
-  state_publisher_       = getNodeHandle().advertise<nav_msgs::Odometry>("state", 10, false);
-  pose_publisher_        = getNodeHandle().advertise<geometry_msgs::PoseStamped>("pose", 10, false);
-  velocity_publisher_    = getNodeHandle().advertise<geometry_msgs::Vector3Stamped>("velocity", 10, false);
-  imu_publisher_         = getNodeHandle().advertise<sensor_msgs::Imu>("imu", 10, false);
-  geopose_publisher_     = getNodeHandle().advertise<geographic_msgs::GeoPose>("geopose", 10, false);
-  global_fix_publisher_  = getNodeHandle().advertise<sensor_msgs::NavSatFix>("global", 10, false);
-  euler_publisher_       = getNodeHandle().advertise<geometry_msgs::Vector3Stamped>("euler", 10, false);
 
-  angular_velocity_bias_publisher_    = getNodeHandle().advertise<geometry_msgs::Vector3Stamped>("angular_velocity_bias", 10, false);
-  linear_acceleration_bias_publisher_ = getNodeHandle().advertise<geometry_msgs::Vector3Stamped>("linear_acceleration_bias", 10, false);
-  gps_pose_publisher_                 = getNodeHandle().advertise<geometry_msgs::PoseStamped>("fix/pose", 10, false);
-  sensor_pose_publisher_              = getNodeHandle().advertise<geometry_msgs::PoseStamped>("sensor_pose", 10, false);
+
+  angular_velocity_bias_publisher_    = getNodeHandle().advertise<geometry_msgs::Vector3Stamped>("estimate_angular_velocity_bias", 10, false);
+  linear_acceleration_bias_publisher_ = getNodeHandle().advertise<geometry_msgs::Vector3Stamped>("estimate_linear_acceleration_bias", 10, false);
+  gps_pose_publisher_                 = getNodeHandle().advertise<geometry_msgs::PoseStamped>("estimate_fix/pose", 10, false);
+  sensor_pose_publisher_              = getNodeHandle().advertise<geometry_msgs::PoseStamped>("estimate_sensor_pose", 10, false);
 
   poseupdate_subscriber_  = getNodeHandle().subscribe("poseupdate", 10, &PoseEstimationNode::poseupdateCallback, this);
   twistupdate_subscriber_ = getNodeHandle().subscribe("twistupdate", 10, &PoseEstimationNode::twistupdateCallback, this);
@@ -231,6 +244,47 @@ void PoseEstimationNode::magneticCallback(const geometry_msgs::Vector3StampedCon
   }
 }
 
+// available
+void PoseEstimationNode::SvoImageCallback(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg){
+	  boost::shared_ptr<SvoImage> m = boost::static_pointer_cast<SvoImage>(pose_estimation_->getMeasurement("svo_image"));
+	  SvoImage::MeasurementVector update;
+	  update(0)=msg->pose.pose.position.x;
+	  update(1)=msg->pose.pose.position.y;
+//	  update(2)=0;
+//	  update(3)=0;
+//	  ROS_INFO("update: %lf %lf %lf %lf",update(0),update(1),update(2),update(3));
+	  m->add(SvoImage::Update(update));
+}
+
+// available
+void PoseEstimationNode::imageCallback(const geometry_msgs::TwistStampedConstPtr& msg){
+	  boost::shared_ptr<Image> m = boost::static_pointer_cast<Image>(pose_estimation_->getMeasurement("image"));
+	  Image::MeasurementVector update;
+	  update(0)=msg->twist.linear.x;
+	  update(1)=msg->twist.linear.y;
+	  update(2)=msg->twist.angular.x;
+	  update(3)=msg->twist.angular.y;
+	  m->add(Image::Update(update));
+}
+
+void PoseEstimationNode::imageCallback2(const geometry_msgs::PoseStampedConstPtr& pose){
+	  boost::shared_ptr<Image> m = boost::static_pointer_cast<Image>(pose_estimation_->getMeasurement("image"));
+		tf::Quaternion q;
+		double yaw, pitch, roll;
+		tf::quaternionMsgToTF(pose->pose.orientation, q);
+		tf::Matrix3x3(q).getEulerYPR(yaw, pitch, roll);
+	  Image::MeasurementVector update;
+	  update(1) = pose->pose.position.x;
+	  update(2) = pose->pose.position.y;
+	  update(3) = pose->pose.position.z;
+	  update(0) = yaw;
+	  m->add(Image::Update(update));
+
+//	  if (sensor_) {
+//	    sensor_pose_yaw_ = -(m->getModel()->getTrueHeading(pose_estimation_->state(), update) - pose_estimation_->globalReference()->heading());
+//	  }
+}
+
 void PoseEstimationNode::gpsCallback(const sensor_msgs::NavSatFixConstPtr& gps, const geometry_msgs::Vector3StampedConstPtr& gps_velocity) {
   boost::shared_ptr<GPS> m = boost::static_pointer_cast<GPS>(pose_estimation_->getMeasurement("gps"));
 
@@ -269,7 +323,7 @@ void PoseEstimationNode::gpsCallback(const sensor_msgs::NavSatFixConstPtr& gps, 
 
 void PoseEstimationNode::poseupdateCallback(const geometry_msgs::PoseWithCovarianceStampedConstPtr& pose) {
   pose_estimation_->getMeasurement("poseupdate")->add(PoseUpdate::Update(pose));
-
+  ROS_INFO("pose update callback.");
   if (sensor_pose_publisher_) {
     if (pose->pose.covariance[0] > 0)  sensor_pose_.pose.position.x = pose->pose.pose.position.x;
     if (pose->pose.covariance[7] > 0)  sensor_pose_.pose.position.y = pose->pose.pose.position.y;
@@ -295,6 +349,8 @@ void PoseEstimationNode::syscommandCallback(const std_msgs::StringConstPtr& sysc
     publish();
   }
 }
+
+
 
 void PoseEstimationNode::globalReferenceUpdated() {
   geographic_msgs::GeoPose geopose;
@@ -328,6 +384,12 @@ void PoseEstimationNode::publish() {
     geometry_msgs::PoseStamped pose_msg;
     pose_estimation_->getPose(pose_msg);
     pose_publisher_.publish(pose_msg);
+  }
+
+  if (rate_publisher_) {
+    geometry_msgs::Vector3Stamped rate_msg;
+    pose_estimation_->getRate(rate_msg);
+    rate_publisher_.publish(rate_msg);
   }
 
   if (imu_publisher_ && imu_publisher_.getNumSubscribers() > 0) {

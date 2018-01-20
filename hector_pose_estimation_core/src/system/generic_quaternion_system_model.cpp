@@ -129,15 +129,19 @@ bool GenericQuaternionSystemModel::prepareUpdate(State& state, double dt)
 {
   if (state.rate()) {
     rate_nav_ = state.R() * state.getRate();
+    ROS_DEBUG_STREAM_NAMED("system", "state.rate");
   }
   else if (rate_input_) {
     rate_nav_ = state.R() * rate_input_->getVector();
+    ROS_DEBUG_STREAM_NAMED("system", "rate_input");
   }
   else if (imu_) {
     if (gyro_) {
       rate_nav_ = state.R() * gyro_->getModel()->getRate(imu_->getRate(), state);
+      ROS_DEBUG_STREAM_NAMED("system", "imu_gyro");
     } else {
       rate_nav_ = state.R() * imu_->getRate();
+      ROS_DEBUG_STREAM_NAMED("system", "imu_no_gyro");
     }
   } else {
     rate_nav_.setZero();
@@ -145,15 +149,19 @@ bool GenericQuaternionSystemModel::prepareUpdate(State& state, double dt)
 
   if (state.acceleration()) {
     acceleration_nav_ = state.R() * state.getAcceleration();
+    ROS_DEBUG_STREAM_NAMED("system", "state.rate");
   }
   else if (force_input_) {
     acceleration_nav_ = state.R() * force_input_->getVector();
+    ROS_DEBUG_STREAM_NAMED("system", "rate_input");
   }
   else if (imu_) {
     if (accelerometer_) {
       acceleration_nav_ = state.R() * accelerometer_->getModel()->getAcceleration(imu_->getAcceleration(), state);
+      ROS_DEBUG_STREAM_NAMED("system", "imu_accelerometer");
     } else {
       acceleration_nav_ = state.R() * imu_->getAcceleration();
+      ROS_DEBUG_STREAM_NAMED("system", "imu_no_accelerometer");
     }
   } else {
     acceleration_nav_.setZero();
@@ -169,12 +177,14 @@ void GenericQuaternionSystemModel::getDerivative(StateVector& x_dot, const State
   x_dot.setZero();
 
   if (state.rate()) {
+//		ROS_INFO("state rate");
     if (torque_input_) {
       state.rate()->segment(x_dot) = torque_input_->getVector();
     }
   }
 
   if (state.orientation()) {
+//		ROS_INFO("state orientation");
     state.orientation()->segment(x_dot).head(3) = rate_nav_;
     if (!(state.getSystemStatus() & STATE_YAW) || (state.getSystemStatus() & STATUS_ALIGNMENT)) {
       state.orientation()->segment(x_dot).z() = 0.0;
@@ -182,6 +192,7 @@ void GenericQuaternionSystemModel::getDerivative(StateVector& x_dot, const State
   }
 
   if (state.velocity()) {
+//		ROS_INFO("state velocity");
     if ((state.getSystemStatus() & STATE_VELOCITY_XY) && !(state.getSystemStatus() & STATUS_ALIGNMENT)) {
       state.velocity()->segment(x_dot)(X) = acceleration_nav_.x();
       state.velocity()->segment(x_dot)(Y) = acceleration_nav_.y();
@@ -197,10 +208,12 @@ void GenericQuaternionSystemModel::getDerivative(StateVector& x_dot, const State
   if (state.position()) {
     State::ConstVelocityType v(state.getVelocity());
     if ((state.getSystemStatus() & STATE_POSITION_XY) && !(state.getSystemStatus() & STATUS_ALIGNMENT)) {
+
       state.position()->segment(x_dot)(X) = v.x();
       state.position()->segment(x_dot)(Y) = v.y();
     }
     if ((state.getSystemStatus() & STATE_POSITION_Z) && !(state.getSystemStatus() & STATUS_ALIGNMENT)) {
+
       state.position()->segment(x_dot)(Z) = v.z();
     }
   }

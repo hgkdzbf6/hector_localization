@@ -82,7 +82,7 @@ void GyroModel::getRateNoise(CovarianceBlock Q, const State &, bool init)
   if (!init) return;
   Q(X,X) = Q(Y,Y) = Q(Z,Z) = pow(rate_stddev_, 2);
 }
-
+//
 //void GyroModel::getDerivative(StateVector &x_dot, const State &state)
 //{
 //  x_dot.setZero();
@@ -90,7 +90,7 @@ void GyroModel::getRateNoise(CovarianceBlock Q, const State &, bool init)
 //    state.orientation()->segment(x_dot).head(3) = state.R() * bias_->vector();
 //  }
 //}
-
+//
 //void GyroModel::getStateJacobian(SystemMatrix& A, const State& state)
 //{
 //  A.setZero();
@@ -158,13 +158,13 @@ void AccelerometerModel::getAccelerationNoise(CovarianceBlock Q, const State &, 
 //    }
 //  }
 //}
-
+//
 //void AccelerometerModel::getStateJacobian(SystemMatrixBlock& A, const State& state)
 //{
 //  A.setZero();
 //  if (state.velocity() && !state.acceleration()) {
 //    const State::RotationMatrix &R = state.R();
-
+//
 //    if (state.getSystemStatus() & STATE_VELOCITY_XY) {
 //      state.velocity()->block(A, *bias_).row(X) = R.row(X);
 //      state.velocity()->block(A, *bias_).row(Y) = R.row(Y);
@@ -172,17 +172,17 @@ void AccelerometerModel::getAccelerationNoise(CovarianceBlock Q, const State &, 
 //    if (state.getSystemStatus() & STATE_VELOCITY_Z) {
 //      state.velocity()->block(A, *bias_).row(Z) = R.row(Z);
 //    }
-
+//
 //    if (state.getSystemStatus() & STATE_VELOCITY_XY) {
 //      state.velocity()->block(A, *state.orientation())(X,X) = 0.0;
 //      state.velocity()->block(A, *state.orientation())(X,Y) =  bias_nav_.z();
 //      state.velocity()->block(A, *state.orientation())(X,Z) = -bias_nav_.y();
-
+//
 //      state.velocity()->block(A, *state.orientation())(Y,X) = -bias_nav_.z();
 //      state.velocity()->block(A, *state.orientation())(Y,Y) = 0.0;
 //      state.velocity()->block(A, *state.orientation())(Y,Z) =  bias_nav_.x();
 //    }
-
+//
 //    if (state.getSystemStatus() & STATE_VELOCITY_Z) {
 //      state.velocity()->block(A, *state.orientation())(Z,X) =  bias_nav_.y();
 //      state.velocity()->block(A, *state.orientation())(Z,Y) = -bias_nav_.x();
