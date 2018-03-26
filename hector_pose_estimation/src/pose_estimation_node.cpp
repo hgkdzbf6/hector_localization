@@ -350,8 +350,6 @@ void PoseEstimationNode::syscommandCallback(const std_msgs::StringConstPtr& sysc
   }
 }
 
-
-
 void PoseEstimationNode::globalReferenceUpdated() {
   geographic_msgs::GeoPose geopose;
   pose_estimation_->globalReference()->getGeoPose(geopose);
